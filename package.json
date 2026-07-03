@@ -1,0 +1,19 @@
+{
+  "name": "ableton-pixel-display",
+  "version": "1.0.0",
+  "description": "Display images, GIFs, and video in Ableton Live's Arrangement view as colored clips",
+  "scripts": {
+    "pixels": "tsx pixel-display.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "type": "commonjs",
+  "dependencies": {
+    "ableton-js": "^4.1.0",
+    "gifwrap": "^0.10.1",
+    "jimp": "^1.6.1"
+  },
+  "devDependencies": {
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  }
+}
