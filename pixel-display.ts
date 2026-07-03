@@ -115,22 +115,6 @@ const channelDelta = (a: number, b: number) =>
     Math.abs((a & 0xff) - (b & 0xff)),
   );
 
-// Whether Live's script supports the batched set_clip_colors command (probed once).
-let bulkSupported: boolean | null = null;
-
-// Try to set many clip colors in one command. Returns false if unsupported.
-const setColorsBulk = async (pairs: Array<[string, number]>): Promise<boolean> => {
-  if (bulkSupported === false || pairs.length === 0) return false;
-  try {
-    await (ableton as any).sendCommand({ns: 'song', name: 'set_clip_colors', args: {colors: pairs}});
-    bulkSupported = true;
-    return true;
-  } catch {
-    bulkSupported = false; // old script without the command — fall back forever
-    return false;
-  }
-};
-
 // Renders one frame. `last` is a persistent buffer (-1 = never set) that we
 // update only for cells we actually change, so DELTA-skipped cells keep their
 // real baseline instead of silently drifting.
@@ -145,16 +129,7 @@ const renderFrame = async (cells: any[][], rgb: number[], w: number, h: number, 
   }
   if (!changed.length) return 0;
 
-  // Fast path: one batched command for every changed clip.
-  const pairs = changed
-    .filter(([x, y]) => cells[x][y])
-    .map(([x, y, , val]) => [cells[x][y].raw.id, val] as [string, number]);
-  if (await setColorsBulk(pairs)) {
-    for (const [, , i, val] of changed) last[i] = val;
-    return changed.length;
-  }
-
-  // Fallback: individual sets, throttled + resilient to dropped commands.
+  // Individual sets, throttled + resilient to dropped commands.
   await mapLimit(changed, CONCURRENCY, async ([x, y, i, val]) => {
     try {
       if (cells[x][y]) {
@@ -184,8 +159,8 @@ const buildSource = async (input: string): Promise<FrameSource> => {
 };
 
 // A round-trip that only completes once Live's main thread has drained pending
-// work (the bulk color command acks *before* Live finishes repainting, so we
-// need this to avoid outrunning Live and piling up a backlog).
+// work (individual color-set commands ack *before* Live finishes repainting,
+// so we need this to avoid outrunning Live and piling up a backlog).
 const syncBarrier = async () => {
   try {
     await ableton.song.get('current_song_time');
@@ -247,10 +222,7 @@ const main = async () => {
       const n = await renderFrame(cells, grid, WIDTH, HEIGHT, last);
       if (!shown) {
         shown = true;
-        console.log(
-          `Frame ${i}: updated ${n}/${WIDTH * HEIGHT} cells in ${Date.now() - t0}ms` +
-            `${bulkSupported ? ' (bulk)' : ' (per-clip — restart Live for the fast path)'}.`,
-        );
+        console.log(`Frame ${i}: updated ${n}/${WIDTH * HEIGHT} cells in ${Date.now() - t0}ms.`);
       }
     });
   } else {

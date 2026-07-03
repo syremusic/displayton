@@ -39,14 +39,14 @@ npm run pixels -- --clear
 
 ## Flags
 
-| Flag | Default | Meaning |
-|---|---|---|
-| `--image <path>` | — | PNG/JPG/GIF, or a folder of frames |
-| `--video <path>` | — | Video file (mp4/mov/webm/…), decoded via ffmpeg; alias of `--image` |
-| `--width <n>` | `32` | Columns (horizontal pixels) |
-| `--height <n>` | `32` | Rows (vertical pixels) |
-| `--animate` | off | Play multiple frames (GIF/video/dir) in order, looping until `Ctrl+C` |
-| `--clear` | — | Delete all display tracks and exit |
+| Flag             | Default | Meaning                                                               |
+| ---------------- | ------- | --------------------------------------------------------------------- |
+| `--image <path>` | —       | PNG/JPG/GIF, or a folder of frames                                    |
+| `--video <path>` | —       | Video file (mp4/mov/webm/…), decoded via ffmpeg; alias of `--image`   |
+| `--width <n>`    | `32`    | Columns (horizontal pixels)                                           |
+| `--height <n>`   | `32`    | Rows (vertical pixels)                                                |
+| `--animate`      | off     | Play multiple frames (GIF/video/dir) in order, looping until `Ctrl+C` |
+| `--clear`        | —       | Delete all display tracks and exit                                    |
 
 Animation plays each frame in order **as fast as Live will accept it** (render a
 frame, wait for Live to finish painting, move on) — no frame rate to configure.
@@ -62,20 +62,18 @@ hard ceiling. So roughly:
 
 > **fps ≈ 1000 ÷ (clips that change per frame)**
 
-| Grid | full-motion fps |
-|---|---|
-| 24×16 | ~2.6 |
-| 32×18 | ~1.7 |
-| 96×54 | ~0.2 |
-| 192×120 | ~0.05 |
+| Grid    | full-motion fps |
+| ------- | --------------- |
+| 24×16   | ~2.6            |
+| 32×18   | ~1.7            |
+| 96×54   | ~0.2            |
+| 192×120 | ~0.05           |
 
 So the one lever that matters is **`--width`/`--height`** — keep it small
 (~24×16–32×18) for smoother motion, or go large and accept a slideshow. Under the
-hood it already does the sensible things automatically: it only re-colors clips
-that actually changed, and it uses the batched `set_clip_colors` command in the
-AbletonJS script to avoid per-clip round-trips. The first frame log says `(bulk)`
-when that fast path is active; if it says `(per-clip …)`, restart Live so the
-script reloads.
+hood it already does the sensible thing automatically: it only re-colors clips
+that actually changed, setting each one individually (throttled, with bounded
+concurrency) since there's no batched color-set command in the AbletonJS script.
 
 ## How it works
 
@@ -88,10 +86,12 @@ matching elapsed wall time and waits for Live to finish painting, so a slow Live
 drops frames and stays in real time instead of building a backlog.
 
 ## Files
+
 - [pixel-display.ts](pixel-display.ts) — CLI, arrangement builder, renderer, animation loop.
 - [pixels.ts](pixels.ts) — image/GIF/video frame loading, resizing, RGB extraction.
 
 ## Limitations
+
 - **Motion is throughput-bound** by Live's ~1k-clips/sec repaint — high-res video
   is a slideshow, not smooth playback.
 - **Zoom** isn't in the Live API — you frame the image manually.
